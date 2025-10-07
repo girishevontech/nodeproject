@@ -1,33 +1,53 @@
-name: CI/CD Pipeline - Node API
+name: CI/CD - Node.js Docker App (GitHub Runner Deployment)
 
 on:
   push:
-    branches: [ "main" ]   # Run pipeline when code is pushed to main
+    branches:
+      - main
 
 jobs:
-  build-and-push:
-    name: Build & Push Docker Image
+  build_and_deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      # Checkout source code
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Login to DockerHub
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
+      # Log in to Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build Docker image
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/hello-node-app:latest .
+      # Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/nodeproject:latest
 
-      # Push Docker image to DockerHub
-      - name: Push Docker image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/hello-node-app:latest
+      # Pull image from Docker Hub
+      - name: Pull Docker image
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nodeproject:latest
 
-  deploy:
-    nam
+      # Run container inside GitHub Runner
+      - name: Run container
+        run: |
+          docker run -d -p 3000:3000 --name nodeproject ${{ secrets.DOCKERHUB_USERNAME }}/nodeproject:latest
+          sleep 5
+          docker ps
+
+      # Verify container response (basic health check)
+      - name: Test running container
+        run: |
+          echo "Checking API response..."
+          curl -f http://localhost:3000/ || (echo "App did not respond!" && exit 1)
+
+      # Stop container after verification
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop nodeproject || true
+          docker rm nodeproject || true
