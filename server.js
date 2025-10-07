@@ -17,6 +17,11 @@ app.get("/app/v2", (req, res) => {
   res.json({ message: "Version 2" });
 });
 
+// Version 3 API
+app.get("/app/v3", (req, res) => {
+  res.json({ message: "Version 3" });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
